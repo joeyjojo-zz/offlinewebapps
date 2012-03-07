@@ -44,16 +44,23 @@ App.contactsController = SC.ArrayController.create({
   // Adds a new contact to the list and ensures it is
   // sorted correctly.
   add: function(contact) {
-    var length = this.get('length'), idx;
+      $.post("contact/add.json", contact.getProperties('firstname', 'lastname') )
+      .success(function(){
+          var length = this.get('length'), idx;
 
-    idx = this.binarySearch(contact.get('sortValue'), 0, length);
+          idx = this.binarySearch(contact.get('sortValue'), 0, length);
 
-    this.insertAt(idx, contact);
+          this.insertAt(idx, contact);
 
-    // If the value by which we've sorted the contact
-    // changes, we need to re-insert it at the correct
-    // location in the list.
-    contact.addObserver('sortValue', this, 'contactSortValueDidChange');
+          // If the value by which we've sorted the contact
+          // changes, we need to re-insert it at the correct
+          // location in the list.
+          contact.addObserver('sortValue', this, 'contactSortValueDidChange');
+      })
+      .error(function(){
+              console.log("error!");
+      });
+
   },
 
   // Binary search implementation that finds the index

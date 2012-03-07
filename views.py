@@ -12,3 +12,7 @@ def getcontacts():
                  'phoneNumbers':[pn.number for pn in c.phonenumber]} for c in models.Contact.query.all()]
 
     return json.dumps({"contacts":contacts})
+
+def addcontact():
+    print "adding contact!"
+    return json.dumps({"success":True})
