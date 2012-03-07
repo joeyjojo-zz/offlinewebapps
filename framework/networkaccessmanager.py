@@ -1,6 +1,5 @@
 __author__ = 'jond'
 
-import json
 import re
 
 try:
