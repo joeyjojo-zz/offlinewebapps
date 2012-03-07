@@ -8,18 +8,11 @@ try:
 except ImportError:
     from PySide import QtCore, QtNetwork
 
-def getcontacts():
-
-    contacts = [{'guid':1,
-                 'firstName':'Jon',
-                 'lastName':'Dunleavy',
-                 'phoneNumbers':['(415) 555-2380']},
-    ]
-
-    return json.dumps({"contacts":contacts})
-
-
-REDIRECTS = ((re.compile('contacts.json'), getcontacts),)
+try:
+    import urls
+except ImportError:
+    print "Application is not properly configured. please provide urls.py"
+    raise
 
 class NetworkAccessManager(QtNetwork.QNetworkAccessManager):
     """
@@ -35,7 +28,7 @@ class NetworkAccessManager(QtNetwork.QNetworkAccessManager):
         requrl = request.url()
         requrlstr = requrl.toString()
         if operation == QtNetwork.QNetworkAccessManager.GetOperation:
-            for urltuple in REDIRECTS:
+            for urltuple in urls.REDIRECTS:
                 if re.search(urltuple[0], requrlstr):
                     reply = FakeReply(self, request, operation, urltuple[1])
         if reply is None:
