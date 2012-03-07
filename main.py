@@ -67,8 +67,9 @@ class MainWindow(QtGui.QMainWindow):
 
 if __name__ == '__main__':
     # start up the model
-    setup_all()
+    setup_all(True)
     create_all()
+    loadfixtures()
     # start up qt
     app = QtGui.QApplication(sys.argv)
     win = MainWindow()

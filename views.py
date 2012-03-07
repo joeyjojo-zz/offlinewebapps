@@ -2,12 +2,13 @@ __author__ = 'jond'
 
 import json
 
+import models
+
 def getcontacts():
 
-    contacts = [{'guid':1,
-                 'firstName':'Jon',
-                 'lastName':'Dunleavy',
-                 'phoneNumbers':['(415) 555-2380']},
-    ]
+    contacts = [{'guid':c.id,
+                 'firstName':c.firstname,
+                 'lastName':c.lastname,
+                 'phoneNumbers':[pn.number for pn in c.phonenumber]} for c in models.Contact.query.all()]
 
     return json.dumps({"contacts":contacts})
