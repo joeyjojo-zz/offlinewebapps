@@ -2,79 +2,13 @@ __author__ = 'jond'
 
 import sys
 import os
-import json
-import re
 
 try:
-    from PyQt4 import QtCore, QtGui, QtWebKit, QtNetwork
+    from PyQt4 import QtCore, QtGui, QtWebKit
 except ImportError:
-    from PySide import QtCore, QtGui, QtWebKit, QtNetwork
+    from PySide import QtCore, QtGui, QtWebKit
 
-def getcontacts():
-
-    contacts = [{'guid':1,
-                 'firstName':'Jon',
-                 'lastName':'Dunleavy',
-                 'phoneNumbers':['(415) 555-2380']},
-                ]
-
-    return json.dumps({"contacts":contacts})
-
-
-REDIRECTS = ((re.compile('contacts.json'), getcontacts),)
-
-class NetworkAccessManager(QtNetwork.QNetworkAccessManager):
-
-    def createRequest(self, operation, request, data):
-        reply = None
-        requrl = request.url()
-        requrlstr = requrl.toString()
-        if operation == QtNetwork.QNetworkAccessManager.GetOperation:
-            for urltuple in REDIRECTS:
-                if re.search(urltuple[0], requrlstr):
-                    reply = FakeReply(self, request, operation, urltuple[1])
-        if reply is None:
-            reply = QtNetwork.QNetworkAccessManager.createRequest(self, operation, request, data)
-        return reply
-
-class FakeReply(QtNetwork.QNetworkReply):
-    """
-    The reply class that is used when a url is to be dealt with by the application
-    and is not to be dealt with by the usual method
-    """
-    def __init__(self, parent, request, operation, f):
-        QtNetwork.QNetworkReply.__init__(self, parent)
-        self.setRequest(request)
-        self.setUrl(request.url())
-        self.setOperation(operation)
-        #self.setFinished(True)
-        self.open(self.ReadOnly | self.Unbuffered)
-
-        self.content = f()
-        self.offset = 0
-
-        self.setHeader(QtNetwork.QNetworkRequest.ContentTypeHeader, "application/json; charset=UTF-8")
-        self.setHeader(QtNetwork.QNetworkRequest.ContentLengthHeader, len(self.content))
-
-        QtCore.QTimer.singleShot(0, self, QtCore.SIGNAL("readyRead()"))
-        QtCore.QTimer.singleShot(0, self, QtCore.SIGNAL("finished()"))
-
-
-    def abort(self):
-        pass
-
-    def bytesAvailable(self):
-        return len(self.content) - self.offset
-
-    def isSequential(self):
-        return True
-
-    def readData(self, maxSize):
-        if self.offset < len(self.content):
-            end = min(self.offset + maxSize, len(self.content))
-            data = self.content[self.offset:end]
-            self.offset = end
-            return data
+import framework.networkaccessmanager as nam
 
 class MainWindow(QtGui.QMainWindow):
     """
@@ -125,7 +59,7 @@ class MainWindow(QtGui.QMainWindow):
         Set up our custom network manager that can interrupt requests
         """
         # set up the network request intercepter
-        page.setNetworkAccessManager(NetworkAccessManager())
+        page.setNetworkAccessManager(nam.NetworkAccessManager())
 
 
 if __name__ == '__main__':
