@@ -37,14 +37,15 @@ class MainWindow(QtGui.QMainWindow):
         horizontalLayout.setContentsMargins(0, 0, 0, 0)
         self.setCentralWidget(centralwidget)
 
+        # setup webkit how we want it
         gs = QtWebKit.QWebSettings.globalSettings()
         gs.setAttribute(QtWebKit.QWebSettings.PluginsEnabled, True)
         gs.setAttribute(QtWebKit.QWebSettings.JavascriptEnabled, True)
         gs.setAttribute(QtWebKit.QWebSettings.AutoLoadImages, True)
         gs.setAttribute(QtWebKit.QWebSettings.JavascriptCanOpenWindows, True)
         gs.setAttribute(QtWebKit.QWebSettings.DeveloperExtrasEnabled, True)
-        # Added by PF - allows the inspector to persist your settings in a platform-specific way
-        # On Windows this uses the registry, so we don't want this to happen in production builds.
+
+        # setup app details
         QtGui.QApplication.setApplicationName("EXAMPLEAPP")
         QtGui.QApplication.setOrganizationName("DEFMYFUNC")
 
