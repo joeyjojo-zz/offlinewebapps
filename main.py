@@ -5,7 +5,10 @@ import os
 import json
 import re
 
-from PyQt4 import QtCore, QtGui, QtWebKit, QtNetwork
+try:
+    from PyQt4 import QtCore, QtGui, QtWebKit, QtNetwork
+except ImportError:
+    from PySide import QtCore, QtGui, QtWebKit, QtNetwork
 
 def getcontacts():
 
@@ -35,19 +38,23 @@ class NetworkAccessManager(QtNetwork.QNetworkAccessManager):
         return reply
 
 class FakeReply(QtNetwork.QNetworkReply):
+    """
+    The reply class that is used when a url is to be dealt with by the application
+    and is not to be dealt with by the usual method
+    """
     def __init__(self, parent, request, operation, f):
         QtNetwork.QNetworkReply.__init__(self, parent)
         self.setRequest(request)
         self.setUrl(request.url())
         self.setOperation(operation)
-        self.setFinished(True)
+        #self.setFinished(True)
         self.open(self.ReadOnly | self.Unbuffered)
 
         self.content = f()
         self.offset = 0
 
-        self.setHeader(QtNetwork.QNetworkRequest.ContentTypeHeader, QtCore.QVariant("application/json; charset=UTF-8"))
-        self.setHeader(QtNetwork.QNetworkRequest.ContentLengthHeader, QtCore.QVariant(len(self.content)))
+        self.setHeader(QtNetwork.QNetworkRequest.ContentTypeHeader, "application/json; charset=UTF-8")
+        self.setHeader(QtNetwork.QNetworkRequest.ContentLengthHeader, len(self.content))
 
         QtCore.QTimer.singleShot(0, self, QtCore.SIGNAL("readyRead()"))
         QtCore.QTimer.singleShot(0, self, QtCore.SIGNAL("finished()"))
@@ -78,6 +85,9 @@ class MainWindow(QtGui.QMainWindow):
         self.setupUi()
 
     def setupUi(self):
+        """
+        Setup the ui of the window that the webapp will operate in
+        """
         centralwidget = QtGui.QWidget()
         centralwidget.setObjectName("centralwidget")
         horizontalLayout = QtGui.QHBoxLayout(centralwidget)
@@ -103,11 +113,17 @@ class MainWindow(QtGui.QMainWindow):
         QtGui.QApplication.setOrganizationName("DEFMYFUNC")
 
     def setUrl(self, urlstr):
+        """
+        Set the url of the webview, should only be used on startup
+        """
         webView = self.findChild(QtWebKit.QWebView, "webView")
         if webView:
             webView.setUrl(QtCore.QUrl(urlstr))
 
     def setupNetworkManager(self, page):
+        """
+        Set up our custom network manager that can interrupt requests
+        """
         # set up the network request intercepter
         page.setNetworkAccessManager(NetworkAccessManager())
 
