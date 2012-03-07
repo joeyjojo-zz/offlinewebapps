@@ -10,6 +10,8 @@ except ImportError:
 
 import framework.networkaccessmanager as nam
 
+from models import *
+
 class MainWindow(QtGui.QMainWindow):
     """
     The main, and only, window of the application
@@ -63,6 +65,10 @@ class MainWindow(QtGui.QMainWindow):
 
 
 if __name__ == '__main__':
+    # start up the model
+    setup_all()
+    create_all()
+    # start up qt
     app = QtGui.QApplication(sys.argv)
     win = MainWindow()
     win.show()
