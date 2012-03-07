@@ -27,10 +27,9 @@ class NetworkAccessManager(QtNetwork.QNetworkAccessManager):
         reply = None
         requrl = request.url()
         requrlstr = requrl.toString()
-        if operation == QtNetwork.QNetworkAccessManager.GetOperation:
-            for urltuple in urls.REDIRECTS:
-                if re.search(urltuple[0], requrlstr):
-                    reply = FakeReply(self, request, operation, urltuple[1])
+        for urltuple in urls.REDIRECTS:
+            if re.search(urltuple[0], requrlstr):
+                reply = FakeReply(self, request, operation, urltuple[1])
         if reply is None:
             reply = QtNetwork.QNetworkAccessManager.createRequest(self, operation, request, data)
         return reply
