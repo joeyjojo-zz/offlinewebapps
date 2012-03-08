@@ -23,13 +23,17 @@ class NetworkAccessManager(QtNetwork.QNetworkAccessManager):
         """
         Deal with the request when it comes in
         """
-        print operation, request, data
         reply = None
         requrl = request.url()
         requrlstr = requrl.toString()
         for urltuple in urls.REDIRECTS:
             if re.search(urltuple[0], requrlstr):
-                reply = FakeReply(self, request, operation, urltuple[1])
+                if operation == self.PostOperation:
+                    if data is not None:
+                        postargs = unicode(data.readAll())
+                    reply = FakeReply(self, request, operation, urltuple[1])
+                else:
+                    reply = FakeReply(self, request, operation, urltuple[1])
         if reply is None:
             reply = QtNetwork.QNetworkAccessManager.createRequest(self, operation, request, data)
         return reply
