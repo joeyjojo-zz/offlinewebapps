@@ -23,6 +23,7 @@ class NetworkAccessManager(QtNetwork.QNetworkAccessManager):
         """
         Deal with the request when it comes in
         """
+        print operation, request, data
         reply = None
         requrl = request.url()
         requrlstr = requrl.toString()

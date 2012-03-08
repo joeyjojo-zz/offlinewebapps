@@ -44,7 +44,7 @@ App.contactsController = SC.ArrayController.create({
   // Adds a new contact to the list and ensures it is
   // sorted correctly.
   add: function(contact) {
-      $.post("contact/add.json", contact.getProperties('firstname', 'lastname') )
+      $.post("http://contact/add.json", contact.getProperties('firstname', 'lastname') )
       .success(function(){
           var length = this.get('length'), idx;
 
