@@ -44,6 +44,7 @@ class MainWindow(QtGui.QMainWindow):
         gs.setAttribute(QtWebKit.QWebSettings.AutoLoadImages, True)
         gs.setAttribute(QtWebKit.QWebSettings.JavascriptCanOpenWindows, True)
         gs.setAttribute(QtWebKit.QWebSettings.DeveloperExtrasEnabled, True)
+        gs.setAttribute(QtWebKit.QWebSettings.LocalContentCanAccessRemoteUrls, True)
 
         # setup app details
         QtGui.QApplication.setApplicationName("EXAMPLEAPP")

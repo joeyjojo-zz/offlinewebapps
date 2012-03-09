@@ -35,10 +35,12 @@ class NetworkAccessManager(QtNetwork.QNetworkAccessManager):
                     if data is not None:
                         # parse the post data
                         postargs = unicode(data.readAll())
-                        argd = {k:(urllib.unquote_plus(v.encode('ascii'))).decode('utf-8') for k,v in [tuple(s.split('=')) for s in postargs.split('&')]}
+                        argd = {k:(urllib.unquote_plus(v.encode('ascii'))).decode('utf-8')
+                                for k,v in [tuple(s.split('=')) for s in postargs.split('&')]}
                     reply = FakeReply(self, request, operation, urltuple[1], argd)
                 else:
                     reply = FakeReply(self, request, operation, urltuple[1])
+                reply.setAttribute(QtNetwork.QNetworkRequest.HttpStatusCodeAttribute, 200)
         if reply is None:
             reply = QtNetwork.QNetworkAccessManager.createRequest(self, operation, request, data)
         return reply
@@ -53,7 +55,6 @@ class FakeReply(QtNetwork.QNetworkReply):
         self.setRequest(request)
         self.setUrl(request.url())
         self.setOperation(operation)
-        #self.setFinished(True)
         self.open(self.ReadOnly | self.Unbuffered)
         print args
         self.content = f(**args)
