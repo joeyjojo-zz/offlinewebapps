@@ -1,6 +1,7 @@
 __author__ = 'jond'
 
 import re
+import urllib
 
 try:
     from PyQt4 import QtCore, QtNetwork
@@ -30,8 +31,10 @@ class NetworkAccessManager(QtNetwork.QNetworkAccessManager):
             if re.search(urltuple[0], requrlstr):
                 if operation == self.PostOperation:
                     if data is not None:
+                        # parse the post data
                         postargs = unicode(data.readAll())
-                    reply = FakeReply(self, request, operation, urltuple[1])
+                        argd = {k:urllib.unquote(v) for k,v in [tuple(s.split('=')) for s in postargs.split('&')]}
+                    reply = FakeReply(self, request, operation, urltuple[1], argd)
                 else:
                     reply = FakeReply(self, request, operation, urltuple[1])
         if reply is None:
@@ -43,15 +46,15 @@ class FakeReply(QtNetwork.QNetworkReply):
     The reply class that is used when a url is to be dealt with by the application
     and is not to be dealt with by the usual method
     """
-    def __init__(self, parent, request, operation, f):
+    def __init__(self, parent, request, operation, f, args={}):
         QtNetwork.QNetworkReply.__init__(self, parent)
         self.setRequest(request)
         self.setUrl(request.url())
         self.setOperation(operation)
         #self.setFinished(True)
         self.open(self.ReadOnly | self.Unbuffered)
-
-        self.content = f()
+        print args
+        self.content = f(**args)
         self.offset = 0
 
         self.setHeader(QtNetwork.QNetworkRequest.ContentTypeHeader, "application/json; charset=UTF-8")

@@ -13,6 +13,6 @@ def getcontacts():
 
     return json.dumps({"contacts":contacts})
 
-def addcontact():
-    print "adding contact!"
+def addcontact(firstname, surname):
+    print "adding contact!", firstname, surname
     return json.dumps({"success":True})
