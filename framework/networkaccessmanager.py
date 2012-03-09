@@ -1,7 +1,9 @@
+# -*- encoding: utf-8 -*-
 __author__ = 'jond'
 
 import re
 import urllib
+import json
 
 try:
     from PyQt4 import QtCore, QtNetwork
@@ -33,7 +35,7 @@ class NetworkAccessManager(QtNetwork.QNetworkAccessManager):
                     if data is not None:
                         # parse the post data
                         postargs = unicode(data.readAll())
-                        argd = {k:urllib.unquote(v) for k,v in [tuple(s.split('=')) for s in postargs.split('&')]}
+                        argd = {k:(urllib.unquote_plus(v.encode('ascii'))).decode('utf-8') for k,v in [tuple(s.split('=')) for s in postargs.split('&')]}
                     reply = FakeReply(self, request, operation, urltuple[1], argd)
                 else:
                     reply = FakeReply(self, request, operation, urltuple[1])
