@@ -108,7 +108,7 @@ App.contactsController = SC.ArrayController.create({
 
     this.add(App.Contact.create({
       firstName: names[firstName],
-      lastName: hasLastName < 0.9 ? names[lastName] : null,
+      lastName: hasLastName < 0.9 ? names[lastName] : "",
       phoneNumbers: []
     }));
   },

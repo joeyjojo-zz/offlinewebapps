@@ -36,7 +36,8 @@ class NetworkAccessManager(QtNetwork.QNetworkAccessManager):
                 if data is not None:
                     # parse the post data
                     postargs = unicode(data.readAll())
-                    argd = urlparse.parse_qs(urllib.unquote_plus(postargs.encode('ascii')).decode('utf-8'))
+                    argd = urlparse.parse_qs(urllib.unquote_plus(postargs.encode('ascii')).decode('utf-8'),
+                                             keep_blank_values=True)
 
                 reply = FakeReply(self, request, operation, urltuple[1], argd)
                 # set up the reply with the correct status
