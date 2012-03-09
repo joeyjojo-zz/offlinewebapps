@@ -14,5 +14,7 @@ def getcontacts():
     return json.dumps({"contacts":contacts})
 
 def addcontact(firstname, surname):
-    print "adding contact!", firstname, surname
+    c = models.Contact(firstname=firstname,
+                       surname=surname)
+    models.session.commit()
     return json.dumps({"success":True})
