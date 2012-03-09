@@ -4,6 +4,7 @@ __author__ = 'jond'
 import re
 import json
 import urlparse
+import urllib
 
 try:
     from PyQt4 import QtCore, QtNetwork
@@ -35,8 +36,7 @@ class NetworkAccessManager(QtNetwork.QNetworkAccessManager):
                 if data is not None:
                     # parse the post data
                     postargs = unicode(data.readAll())
-                    d = urlparse.parse_qs(postargs)
-                    argd = json.dumps(d)
+                    argd = urlparse.parse_qs(urllib.unquote_plus(postargs.encode('ascii')).decode('utf-8'))
 
                 reply = FakeReply(self, request, operation, urltuple[1], argd)
                 # set up the reply with the correct status
@@ -51,12 +51,19 @@ class FakeReply(QtNetwork.QNetworkReply):
     and is not to be dealt with by the usual method
     """
     def __init__(self, parent, request, operation, f, args={}):
+        """
+        @type args: dict
+        """
         QtNetwork.QNetworkReply.__init__(self, parent)
         self.setRequest(request)
         self.setUrl(request.url())
         self.setOperation(operation)
         self.open(self.ReadOnly | self.Unbuffered)
-        print args
+        # if any are lists of 1 item then just send the item through
+        for k, v in args.items():
+            if type(v) is type([]):
+                if len(v) is 1:
+                    args[k] = v[0]
         self.content = f(**args)
         self.offset = 0
 
