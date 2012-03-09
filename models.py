@@ -6,12 +6,12 @@ metadata.bind = "sqlite:///contacts.sqlite"
 metadata.bind.echo = True
 
 class Contact(Entity):
-    firstname = Field(Unicode(100))
-    lastname = Field(Unicode(100))
+    firstName = Field(Unicode(100))
+    lastName = Field(Unicode(100))
     phonenumber = OneToMany("PhoneNumber")
 
     def __repr__(self):
-        return '<Contact "{0}" (%d)>'.format(self.name)
+        return '<Contact "{0}" (%d)>'.format(self.firstName)
 
 class PhoneNumber(Entity):
     contact = ManyToOne("Contact")
@@ -19,9 +19,3 @@ class PhoneNumber(Entity):
 
     def __repr__(self):
         return '<PhoneNmber "{0}" (%d)>'.format(self.number)
-
-def loadfixtures():
-    c = Contact(firstname="jimmy",
-                lastname="bob bluh",
-                phonenumber=[PhoneNumber(number="(123) 4567890")])
-    session.commit()
