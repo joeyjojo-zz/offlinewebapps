@@ -6,10 +6,10 @@ App = SC.Application.create();
 
 */
 
-var names = ["Adam", "Bert", "Charlie", "Dave", "Ernie", "Frances",
-  "Gary", "Isabelle", "John", "Kyle", "Lyla", "Matt", "Nancy", "Ophelia",
-  "Peter", "Quentin", "Rachel", "Stan", "Tom", "Uma", "Veronica", "Wilson",
-  "Xander", "Yehuda", "Zora"];
+var names = ["Adam£", "£Bert", "Ch£arlie", "Dav£e", "Er£nie", "Fra£nces",
+  "Ga£ry", "Isab£elle", "Jo£hn", "K£yle", "L£yla", "Ma£tt", "Nan£cy", "Oph£elia",
+  "Pe£ter", "Qu£ntin", "Ra£chel", "St£an", "To£m", "£Uma", "Ve£ronica", "Wils£on",
+  "Xan£der", "Ye£uda", "Zo£ra"];
 
 App.Contact = SC.Object.extend({
   firstName: '',
@@ -44,25 +44,29 @@ App.contactsController = SC.ArrayController.create({
   // Adds a new contact to the list and ensures it is
   // sorted correctly.
   add: function(contact) {
-      $.post("http://contact/add.json", {firstname:"t+es t£'", surname:"testi&=ng2"} )
-      .success(function(data){
-          console.log(contact);
-          var length = this.get('length'), idx;
-
-          idx = this.binarySearch(contact.get('sortValue'), 0, length);
-
-          this.insertAt(idx, contact);
-
-          // If the value by which we've sorted the contact
-          // changes, we need to re-insert it at the correct
-          // location in the list.
-          contact.addObserver('sortValue', this, 'contactSortValueDidChange');
-      })
+      //{data:}
+      $.post("http://contact/add.json", {data: contact.getProperties('firstName', 'lastName')})
+      .success(this.add_response(contact))
       .error(function(){
               console.log("error!");
       });
 
   },
+
+  //
+  add_response: function(contact){
+     var length = this.get('length'), idx;
+
+     idx = this.binarySearch(contact.get('sortValue'), 0, length);
+
+     this.insertAt(idx, contact);
+
+     // If the value by which we've sorted the contact
+     // changes, we need to re-insert it at the correct
+     // location in the list.
+     contact.addObserver('sortValue', this, 'contactSortValueDidChange');
+  },
+
 
   // Binary search implementation that finds the index
   // where a contact should be inserted.
