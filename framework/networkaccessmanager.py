@@ -2,8 +2,8 @@
 __author__ = 'jond'
 
 import re
-import urllib
 import json
+import urlparse
 
 try:
     from PyQt4 import QtCore, QtNetwork
@@ -31,15 +31,15 @@ class NetworkAccessManager(QtNetwork.QNetworkAccessManager):
         requrlstr = requrl.toString()
         for urltuple in urls.REDIRECTS:
             if re.search(urltuple[0], requrlstr):
-                if operation == self.PostOperation:
-                    if data is not None:
-                        # parse the post data
-                        postargs = unicode(data.readAll())
-                        argd = {k:(urllib.unquote_plus(v.encode('ascii'))).decode('utf-8')
-                                for k,v in [tuple(s.split('=')) for s in postargs.split('&')]}
-                    reply = FakeReply(self, request, operation, urltuple[1], argd)
-                else:
-                    reply = FakeReply(self, request, operation, urltuple[1])
+                argd = {}
+                if data is not None:
+                    # parse the post data
+                    postargs = unicode(data.readAll())
+                    d = urlparse.parse_qs(postargs)
+                    argd = json.dumps(d)
+
+                reply = FakeReply(self, request, operation, urltuple[1], argd)
+                # set up the reply with the correct status
                 reply.setAttribute(QtNetwork.QNetworkRequest.HttpStatusCodeAttribute, 200)
         if reply is None:
             reply = QtNetwork.QNetworkAccessManager.createRequest(self, operation, request, data)
