@@ -259,3 +259,7 @@ App.CardView = SC.View.extend({
   }
 });
 
+App.store = DS.Store.create({
+    revision: 2,
+    adapter: DS.RESTAdapter.create()
+});
