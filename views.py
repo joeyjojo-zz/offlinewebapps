@@ -12,11 +12,11 @@ def getcontacts():
     Retrieves all the contacts currently stored in the database
     @return: unicode
     """
-    contacts = [{'guid':c.id,
+    contacts = [{'id':c.id,
                  'firstName':c.firstName,
                  'lastName':c.lastName or "",
                  'phoneNumbers':[pn.number for pn in c.phonenumber]} for c in models.Contact.query.all()]
-
+    print contacts
     return json.dumps({"contacts":contacts})
 
 def addcontact(firstName, lastName):

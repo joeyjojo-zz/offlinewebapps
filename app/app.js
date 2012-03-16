@@ -2,26 +2,30 @@ App = SC.Application.create();
 
 App.store = DS.Store.create({
     revision: 3,
-    adapter: DS.RESTAdapter.create({})
+    adapter: DS.RESTAdapter.create({
+        urlprefix:"http://"
+        /*
+        findAll: function(store, type) {
+            var root = this.rootForType(type), plural = this.pluralize(root);
+            console.log("in find all");
+            this.ajax(this.urlprefix + plural, "GET", {
+                success: function(json) {
+                    console.log(json);
+                    store.loadMany(type, json[plural]);
+                },
+                error: function(){
+                    console.log("error");
+                }
+            });
+        }
+        */
+    })
 });
 
-/*
-DS.Adapter.create({
-    findAll: function(store, type, query, modelArray) {
-        var url = type.collectionUrl;
-        console.log('url: ' + url);
-        jQuery.getJSON(url, query, function(data) {
-            // data is expected to be an Array of Hashes, in an order
-            // determined by the server. This order may be specified in
-            // the query, and will be reflected in the view.
-            //
-            // If your server returns a root, simply do something like:
-            // modelArray.load(data.people)
-            modelArray.load(data);
-        });
-    }
+
+DS.Adapter.reopenClass({
+
 });
-*/
 /*
 
   Model

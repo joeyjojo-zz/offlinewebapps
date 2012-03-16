@@ -84,13 +84,16 @@ DS.fixtureAdapter = DS.Adapter.create({
 var get = Ember.get, set = Ember.set, getPath = Ember.getPath;
 
 DS.RESTAdapter = DS.Adapter.extend({
+
+  urlprefix: "/",
+
   createRecord: function(store, type, model) {
     var root = this.rootForType(type);
 
     var data = {};
     data[root] = get(model, 'data');
 
-    this.ajax("/" + this.pluralize(root), "POST", {
+    this.ajax(this.urlprefix + this.pluralize(root), "POST", {
       data: data,
       success: function(json) {
         store.didCreateRecord(model, json[root]);
@@ -111,7 +114,7 @@ DS.RESTAdapter = DS.Adapter.extend({
       return get(model, 'data');
     });
 
-    this.ajax("/" + this.pluralize(root), "POST", {
+    this.ajax(this.urlprefix + this.pluralize(root), "POST", {
       data: data,
       success: function(json) {
         store.didCreateRecords(type, models, json[plural]);
@@ -127,7 +130,7 @@ DS.RESTAdapter = DS.Adapter.extend({
     var data = {};
     data[root] = get(model, 'data');
 
-    var url = ["", this.pluralize(root), id].join("/");
+    var url = this.urlprefix + ["", this.pluralize(root), id].join("/");
 
     this.ajax(url, "PUT", {
       data: data,
@@ -150,7 +153,7 @@ DS.RESTAdapter = DS.Adapter.extend({
       return get(model, 'data');
     });
 
-    this.ajax("/" + this.pluralize(root), "POST", {
+    this.ajax(this.urlprefix + this.pluralize(root), "POST", {
       data: data,
       success: function(json) {
         store.didUpdateRecords(models, json[plural]);
@@ -163,7 +166,7 @@ DS.RESTAdapter = DS.Adapter.extend({
         id = get(model, primaryKey);
     var root = this.rootForType(type);
 
-    var url = ["", this.pluralize(root), id].join("/");
+    var url = this.urlprefix + ["", this.pluralize(root), id].join("/");
 
     this.ajax(url, "DELETE", {
       success: function(json) {
@@ -186,7 +189,7 @@ DS.RESTAdapter = DS.Adapter.extend({
       return get(model, primaryKey);
     });
 
-    this.ajax("/" + this.pluralize(root) + "/delete", "POST", {
+    this.ajax(this.urlprefix + this.pluralize(root) + "/delete", "POST", {
       data: data,
       success: function(json) {
         store.didDeleteRecords(models);
@@ -197,7 +200,8 @@ DS.RESTAdapter = DS.Adapter.extend({
   find: function(store, type, id) {
     var root = this.rootForType(type);
 
-    var url = ["", this.pluralize(root), id].join("/");
+    var url = this.urlprefix + ["", this.pluralize(root), id].join("/");
+
 
     this.ajax(url, "GET", {
       success: function(json) {
@@ -209,19 +213,19 @@ DS.RESTAdapter = DS.Adapter.extend({
   findMany: function(store, type, ids) {
     var root = this.rootForType(type), plural = this.pluralize(root);
 
-    this.ajax("/" + plural, "GET", {
+    this.ajax(this.urlprefix + plural, "GET", {
       data: { ids: ids },
       success: function(json) {
         store.loadMany(type, ids, json[plural]);
       }
     });
-    var url = "/" + plural;
+    var url = this.urlprefix + plural;
   },
 
   findAll: function(store, type) {
     var root = this.rootForType(type), plural = this.pluralize(root);
 
-    this.ajax("/" + plural, "GET", {
+    this.ajax(this.urlprefix + plural, "GET", {
       success: function(json) {
         store.loadMany(type, json[plural]);
       }
@@ -231,7 +235,7 @@ DS.RESTAdapter = DS.Adapter.extend({
   findQuery: function(store, type, query, modelArray) {
     var root = this.rootForType(type), plural = this.pluralize(root);
 
-    this.ajax("/" + plural, "GET", {
+    this.ajax(this.urlprefix + plural, "GET", {
       data: query,
       success: function(json) {
         modelArray.load(json[plural]);
