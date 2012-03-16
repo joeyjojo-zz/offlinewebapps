@@ -1,5 +1,27 @@
 App = SC.Application.create();
 
+App.store = DS.Store.create({
+    revision: 3,
+    adapter: DS.RESTAdapter.create({})
+});
+
+/*
+DS.Adapter.create({
+    findAll: function(store, type, query, modelArray) {
+        var url = type.collectionUrl;
+        console.log('url: ' + url);
+        jQuery.getJSON(url, query, function(data) {
+            // data is expected to be an Array of Hashes, in an order
+            // determined by the server. This order may be specified in
+            // the query, and will be reflected in the view.
+            //
+            // If your server returns a root, simply do something like:
+            // modelArray.load(data.people)
+            modelArray.load(data);
+        });
+    }
+});
+*/
 /*
 
   Model
@@ -11,9 +33,9 @@ var names = ["Adam£", "£Bert", "Ch£arlie", "Dav£e", "Er£nie", "Fra£nces",
   "Pe£ter", "Qu£ntin", "Ra£chel", "St£an", "To£m", "£Uma", "Ve£ronica", "Wils£on",
   "Xan£der", "Ye£uda", "Zo£ra"];
 
-App.Contact = SC.Object.extend({
-  firstName: '',
-  lastName: '',
+App.Contact = DS.Model.extend({
+  firstName: DS.attr('string'),
+  lastName: DS.attr('string'),
 
   hasName: function() {
     var firstName = this.get('firstName'),
@@ -29,6 +51,11 @@ App.Contact = SC.Object.extend({
   sortValue: function() {
     return this.get('lastName') || this.get('firstName');
   }.property('firstName', 'lastName')
+});
+
+
+App.Contact.reopenClass({
+    url: "/contact"
 });
 
 /*
@@ -154,8 +181,6 @@ App.contactsController = SC.ArrayController.create({
   }
 });
 
-App.contactsController.loadContacts();
-
 App.selectedContactController = SC.Object.create({
   content: null
 });
@@ -259,7 +284,4 @@ App.CardView = SC.View.extend({
   }
 });
 
-App.store = DS.Store.create({
-    revision: 2,
-    adapter: DS.RESTAdapter.create()
-});
+App.store.findAll(App.Contact);
