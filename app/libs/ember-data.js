@@ -1,7 +1,7 @@
 
 (function(exports) {
 window.DS = Ember.Namespace.create({
-  CURRENT_API_REVISION: 3
+  CURRENT_API_REVISION: 4
 });
 
 })({});
@@ -447,15 +447,136 @@ DS.AdapterPopulatedModelArray = DS.ModelArray.extend({
 
 
 (function(exports) {
-var get = Ember.get, set = Ember.set;
+var get = Ember.get, set = Ember.set, guidFor = Ember.guidFor;
+
+var Set = function() {
+  this.hash = {};
+  this.list = [];
+};
+
+Set.prototype = {
+  add: function(item) {
+    var hash = this.hash,
+        guid = guidFor(item);
+
+    if (hash.hasOwnProperty(guid)) { return; }
+
+    hash[guid] = true;
+    this.list.push(item);
+  },
+
+  remove: function(item) {
+    var hash = this.hash,
+        guid = guidFor(item);
+
+    if (!hash.hasOwnProperty(guid)) { return; }
+
+    delete hash[guid];
+    var list = this.list,
+        index = Ember.ArrayUtils.indexOf(this, item);
+
+    list.splice(index, 1);
+  },
+
+  isEmpty: function() {
+    return this.list.length === 0;
+  }
+};
+
+var ManyArrayState = Ember.State.extend({
+  recordWasAdded: function(manager, record) {
+    var dirty = manager.dirty, observer;
+    dirty.add(record);
+
+    observer = function() {
+      if (!get(record, 'isDirty')) {
+        record.removeObserver('isDirty', observer);
+        manager.send('childWasSaved', record);
+      }
+    };
+
+    record.addObserver('isDirty', observer);
+  },
+
+  recordWasRemoved: function(manager, record) {
+    var dirty = manager.dirty, observer;
+    dirty.add(record);
+
+    observer = function() {
+      record.removeObserver('isDirty', observer);
+      if (!get(record, 'isDirty')) { manager.send('childWasSaved', record); }
+    };
+
+    record.addObserver('isDirty', observer);
+  }
+});
+
+var states = {
+  clean: ManyArrayState.create({
+    isDirty: false,
+
+    recordWasAdded: function(manager, record) {
+      this._super(manager, record);
+      manager.goToState('dirty');
+    },
+
+    update: function(manager, clientIds) {
+      var manyArray = manager.manyArray;
+      set(manyArray, 'content', clientIds);
+    }
+  }),
+
+  dirty: ManyArrayState.create({
+    isDirty: true,
+
+    childWasSaved: function(manager, child) {
+      var dirty = manager.dirty;
+      dirty.remove(child);
+
+      if (dirty.isEmpty()) { manager.send('arrayBecameSaved'); }
+    },
+
+    arrayBecameSaved: function(manager) {
+      manager.goToState('clean');
+    }
+  }) 
+};
+
+DS.ManyArrayStateManager = Ember.StateManager.extend({
+  manyArray: null,
+  initialState: 'clean',
+  states: states,
+
+  init: function() {
+    this._super();
+    this.dirty = new Set();
+  }
+});
+
+})({});
+
+
+(function(exports) {
+var get = Ember.get, set = Ember.set, getPath = Ember.getPath;
 
 DS.ManyArray = DS.ModelArray.extend({
+  init: function() {
+    set(this, 'stateManager', DS.ManyArrayStateManager.create({ manyArray: this }));
+
+    return this._super();
+  },
+
   parentRecord: null,
+
+  isDirty: Ember.computed(function() {
+    return getPath(this, 'stateManager.currentState.isDirty');
+  }).property('stateManager.currentState').cacheable(),
 
   // Overrides Ember.Array's replace method to implement
   replace: function(index, removed, added) {
     var parentRecord = get(this, 'parentRecord');
     var pendingParent = parentRecord && !get(parentRecord, 'id');
+    var stateManager = get(this, 'stateManager');
 
     added = added.map(function(record) {
       ember_assert("You can only add records of " + (get(this, 'type') && get(this, 'type').toString()) + " to this association.", !get(this, 'type') || (get(this, 'type') === record.constructor));
@@ -466,15 +587,27 @@ DS.ManyArray = DS.ModelArray.extend({
 
       this.assignInverse(record, parentRecord);
 
+      stateManager.send('recordWasAdded', record);
+
       return record.get('clientId');
     }, this);
+
+    var store = this.store;
+
+    var len = index+removed, record;
+    for (var i = index; i < len; i++) {
+      // TODO: null out inverse FK
+      record = this.objectAt(i);
+      this.assignInverse(record, parentRecord, true);
+      stateManager.send('recordWasAdded', record);
+    }
 
     this._super(index, removed, added);
   },
 
-  assignInverse: function(record, parentRecord) {
+  assignInverse: function(record, parentRecord, remove) {
     var associationMap = get(record.constructor, 'associations'),
-        possibleAssociations = associationMap.get(record.constructor),
+        possibleAssociations = associationMap.get(parentRecord.constructor),
         possible, actual;
 
     if (!possibleAssociations) { return; }
@@ -489,7 +622,7 @@ DS.ManyArray = DS.ModelArray.extend({
     }
 
     if (actual) {
-      set(record, actual.name, parentRecord);
+      set(record, actual.name, remove ? null : parentRecord);
     }
   }
 });
@@ -1488,6 +1621,15 @@ var setProperty = function(manager, context) {
   set(data, key, value);
 };
 
+var setAssociation = function(manager, context) {
+  var key = context.key, value = context.value;
+
+  var model = get(manager, 'model'),
+      data = get(model, 'data');
+
+  data.setAssociation(key, value);
+};
+
 var didChangeData = function(manager) {
   var model = get(manager, 'model'),
       data = get(model, 'data');
@@ -1559,6 +1701,7 @@ var waitingOn = function(manager, object) {
 // super points to the class definition.
 var Uncommitted = Ember.Mixin.create({
   setProperty: setProperty,
+  setAssociation: setAssociation,
 
   deleteRecord: function(manager) {
     this._super(manager);
@@ -1783,6 +1926,8 @@ var DirtyState = DS.State.extend({
       manager.goToState('deleted');
     },
 
+    setAssociation: setAssociation,
+
     setProperty: function(manager, context) {
       setProperty(manager, context);
 
@@ -1911,6 +2056,11 @@ var states = {
         // EVENTS
         setProperty: function(manager, context) {
           setProperty(manager, context);
+          manager.goToState('updated');
+        },
+
+        setAssociation: function(manager, context) {
+          setAssociation(manager, context);
           manager.goToState('updated');
         },
 
@@ -2577,7 +2727,119 @@ DS.attr.transforms = {
 
 
 (function(exports) {
+})({});
+
+
+(function(exports) {
+var get = Ember.get, set = Ember.set, getPath = Ember.getPath,
+    none = Ember.none;
+
+var embeddedFindRecord = function(store, type, data, key, one) {
+  var association = get(data, key);
+  return none(association) ? undefined : store.load(type, association).id;
+};
+
+var referencedFindRecord = function(store, type, data, key, one) {
+  return get(data, key);
+};
+
+var hasAssociation = function(type, options, one) {
+  options = options || {};
+
+  var embedded = options.embedded,
+      findRecord = embedded ? embeddedFindRecord : referencedFindRecord;
+
+  var meta = { type: type, isAssociation: true, options: options, kind: 'belongsTo' };
+
+  return Ember.computed(function(key, value) {
+    var data = get(this, 'data'), ids, id, association,
+        store = get(this, 'store');
+
+    if (typeof type === 'string') {
+      type = getPath(this, type, false) || getPath(window, type);
+    }
+
+    if (arguments.length === 2) {
+      key = options.key || get(this, 'namingConvention').foreignKey(key);
+      this.send('setAssociation', { key: key, value: value === null ? null : get(value, 'clientId') });
+      //data.setAssociation(key, get(value, 'clientId'));
+      // put the client id in `key` in the data hash
+      return value;
+    } else {
+      // Embedded belongsTo associations should not look for
+      // a foreign key.
+      if (embedded) {
+        key = options.key || key;
+
+      // Non-embedded associations should look for a foreign key.
+      // For example, instead of person, we might look for person_id
+      } else {
+        key = options.key || get(this, 'namingConvention').foreignKey(key);
+      }
+      id = findRecord(store, type, data, key, true);
+      association = id ? store.find(type, id) : null;
+    }
+
+    return association;
+  }).property('data').cacheable().meta(meta);
+};
+
+DS.belongsTo = function(type, options) {
+  ember_assert("The type passed to DS.belongsTo must be defined", !!type);
+  return hasAssociation(type, options);
+};
+
+})({});
+
+
+(function(exports) {
 var get = Ember.get, set = Ember.set, getPath = Ember.getPath;
+var embeddedFindRecord = function(store, type, data, key) {
+  var association = get(data, key);
+  return association ? store.loadMany(type, association).ids : [];
+};
+
+var referencedFindRecord = function(store, type, data, key, one) {
+  return get(data, key);
+};
+
+var hasAssociation = function(type, options) {
+  options = options || {};
+
+  var embedded = options.embedded,
+      findRecord = embedded ? embeddedFindRecord : referencedFindRecord;
+
+  var meta = { type: type, isAssociation: true, options: options, kind: 'hasMany' };
+
+  return Ember.computed(function(key, value) {
+    var data = get(this, 'data'),
+        store = get(this, 'store'),
+        ids, id, association;
+
+    if (typeof type === 'string') {
+      type = getPath(this, type, false) || getPath(window, type);
+    }
+
+    key = options.key || key;
+    ids = findRecord(store, type, data, key);
+    association = store.findMany(type, ids);
+    set(association, 'parentRecord', this);
+
+    return association;
+  }).property().cacheable().meta(meta);
+};
+
+DS.hasMany = function(type, options) {
+  ember_assert("The type passed to DS.hasMany must be defined", !!type);
+  return hasAssociation(type, options);
+};
+
+})({});
+
+
+(function(exports) {
+var get = Ember.get, getPath = Ember.getPath;
+
 DS.Model.reopenClass({
   typeForAssociation: function(name) {
     var association = get(this, 'associationsByName').get(name);
@@ -2629,84 +2891,6 @@ DS.Model.reopenClass({
     return map;
   }).cacheable()
 });
-
-
-var embeddedFindRecord = function(store, type, data, key, one) {
-  var association = data ? get(data, key) : one ? null : [];
-  if (one) {
-    return association ? store.load(type, association).id : null;
-  } else {
-    return association ? store.loadMany(type, association).ids : [];
-  }
-};
-
-var referencedFindRecord = function(store, type, data, key, one) {
-  return data ? get(data, key) : one ? null : [];
-};
-
-var hasAssociation = function(type, options, one) {
-  options = options || {};
-
-  var embedded = options.embedded,
-      findRecord = embedded ? embeddedFindRecord : referencedFindRecord;
-
-  var meta = { type: type, isAssociation: true, options: options };
-  if (one) {
-    meta.kind = 'belongsTo';
-  } else {
-    meta.kind = 'hasMany';
-  }
-
-  return Ember.computed(function(key, value) {
-    var data = get(this, 'data'), ids, id, association,
-        store = get(this, 'store');
-
-    if (typeof type === 'string') {
-      type = getPath(this, type, false) || getPath(window, type);
-    }
-
-    if (one) {
-      if (arguments.length === 2) {
-        key = options.key || get(this, 'namingConvention').foreignKey(key);
-        data.setAssociation(key, get(value, 'clientId'));
-        // put the client id in `key` in the data hash
-        return value;
-      } else {
-        // Embedded belongsTo associations should not look for
-        // a foreign key.
-        if (embedded) {
-          key = options.key || key;
-
-        // Non-embedded associations should look for a foreign key.
-        // For example, instead of person, we might look for person_id
-        } else {
-          key = options.key || get(this, 'namingConvention').foreignKey(key);
-        }
-        id = findRecord(store, type, data, key, true);
-        association = id ? store.find(type, id) : null;
-      }
-    } else {
-      key = options.key || key;
-      ids = findRecord(store, type, data, key);
-      association = store.findMany(type, ids);
-      set(association, 'parentRecord', this);
-    }
-
-    return association;
-  }).property('data').cacheable().meta(meta);
-};
-
-DS.hasMany = function(type, options) {
-  ember_assert("The type passed to DS.hasMany must be defined", !!type);
-  return hasAssociation(type, options);
-};
-
-DS.hasOne = function(type, options) {
-  ember_assert("The type passed to DS.belongsTo must be defined", !!type);
-  return hasAssociation(type, options, true);
-};
-
-DS.belongsTo = DS.hasOne;
 
 })({});
 
