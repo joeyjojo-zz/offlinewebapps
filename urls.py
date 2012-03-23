@@ -1,7 +1,6 @@
 __author__ = 'jond'
 
 import re
-
 import views
 
 REDIRECTS = ((re.compile('contacts'), views.getcontacts),
