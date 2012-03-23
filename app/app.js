@@ -3,7 +3,7 @@ App = SC.Application.create();
 App.store = DS.Store.create({
     revision: 3,
     adapter: DS.RESTAdapter.create({
-        urlprefix:"http://"
+        namespace:"http://"
         /*
         findAll: function(store, type) {
             var root = this.rootForType(type), plural = this.pluralize(root);
@@ -22,10 +22,6 @@ App.store = DS.Store.create({
     })
 });
 
-
-DS.Adapter.reopenClass({
-
-});
 /*
 
   Model
