@@ -225,9 +225,7 @@ DS.RESTAdapter = DS.Adapter.extend({
 
     this.ajax(this.buildURL(root), "GET", {
       success: function(json) {
-        var ids = json[plural].map(function(item, index, self){ return item.id; });
-        store.loadMany(type, ids, json[plural]);
-        //store.loadMany(type, json[plural]);
+        store.loadMany(type, json[plural]);
         this.sideload(store, type, json, plural);
       }
     });
