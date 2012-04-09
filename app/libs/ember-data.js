@@ -1491,7 +1491,6 @@ DS.Store = Ember.Object.extend({
       hashes = ids;
       ids = [];
       var primaryKey = type.proto().primaryKey;
-
       ids = Ember.ArrayUtils.map(hashes, function(hash) {
         return hash[primaryKey];
       });
