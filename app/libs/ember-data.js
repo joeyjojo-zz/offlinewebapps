@@ -1,333 +1,13 @@
-
-(function(exports) {
+(function() {
 window.DS = Ember.Namespace.create({
   CURRENT_API_REVISION: 4
 });
 
-})({});
+})();
 
 
-(function(exports) {
-DS.Adapter = Ember.Object.extend({
-  commit: function(store, commitDetails) {
-    commitDetails.updated.eachType(function(type, array) {
-      this.updateRecords(store, type, array.slice());
-    }, this);
 
-    commitDetails.created.eachType(function(type, array) {
-      this.createRecords(store, type, array.slice());
-    }, this);
-
-    commitDetails.deleted.eachType(function(type, array) {
-      this.deleteRecords(store, type, array.slice());
-    }, this);
-  },
-
-  createRecords: function(store, type, models) {
-    models.forEach(function(model) {
-      this.createRecord(store, type, model);
-    }, this);
-  },
-
-  updateRecords: function(store, type, models) {
-    models.forEach(function(model) {
-      this.updateRecord(store, type, model);
-    }, this);
-  },
-
-  deleteRecords: function(store, type, models) {
-    models.forEach(function(model) {
-      this.deleteRecord(store, type, model);
-    }, this);
-  },
-
-  findMany: function(store, type, ids) {
-    ids.forEach(function(id) {
-      this.find(store, type, id);
-    }, this);
-  }
-});
-})({});
-
-
-(function(exports) {
-DS.fixtureAdapter = DS.Adapter.create({
-  find: function(store, type, id) {
-    var fixtures = type.FIXTURES;
-
-    ember_assert("Unable to find fixtures for model type "+type.toString(), !!fixtures);
-    if (fixtures.hasLoaded) { return; }
-
-    setTimeout(function() {
-      store.loadMany(type, fixtures);
-      fixtures.hasLoaded = true;
-    }, 300);
-  },
-
-  findMany: function() {
-    this.find.apply(this, arguments);
-  },
-
-  findAll: function(store, type) {
-    var fixtures = type.FIXTURES;
-
-    ember_assert("Unable to find fixtures for model type "+type.toString(), !!fixtures);
-
-    var ids = fixtures.map(function(item, index, self){ return item.id; });
-    store.loadMany(type, ids, fixtures);
-  }
-
-});
-
-})({});
-
-
-(function(exports) {
-/*global jQuery*/
-var get = Ember.get, set = Ember.set, getPath = Ember.getPath;
-
-DS.RESTAdapter = DS.Adapter.extend({
-  createRecord: function(store, type, model) {
-    var root = this.rootForType(type);
-
-    var data = {};
-    data[root] = model.toJSON();
-
-    this.ajax(this.buildURL(root), "POST", {
-      data: data,
-      success: function(json) {
-        this.sideload(store, type, json, root);
-        store.didCreateRecord(model, json[root]);
-      }
-    });
-  },
-
-  createRecords: function(store, type, models) {
-    if (get(this, 'bulkCommit') === false) {
-      return this._super(store, type, models);
-    }
-
-    var root = this.rootForType(type),
-        plural = this.pluralize(root);
-
-    var data = {};
-    data[plural] = models.map(function(model) {
-      return model.toJSON();
-    });
-
-    this.ajax(this.buildURL(root), "POST", {
-      data: data,
-
-      success: function(json) {
-        this.sideload(store, type, json, plural);
-        store.didCreateRecords(type, models, json[plural]);
-      }
-    });
-  },
-
-  updateRecord: function(store, type, model) {
-    var id = get(model, 'id');
-    var root = this.rootForType(type);
-
-    var data = {};
-    data[root] = model.toJSON();
-
-    this.ajax(this.buildURL(root, id), "PUT", {
-      data: data,
-      success: function(json) {
-        this.sideload(store, type, json, root);
-        store.didUpdateRecord(model, json && json[root]);
-      }
-    });
-  },
-
-  updateRecords: function(store, type, models) {
-    if (get(this, 'bulkCommit') === false) {
-      return this._super(store, type, models);
-    }
-
-    var root = this.rootForType(type),
-        plural = this.pluralize(root);
-
-    var data = {};
-    data[plural] = models.map(function(model) {
-      return model.toJSON();
-    });
-
-    this.ajax(this.buildURL(root, "bulk"), "PUT", {
-      data: data,
-      success: function(json) {
-        this.sideload(store, type, json, plural);
-        store.didUpdateRecords(models, json[plural]);
-      }
-    });
-  },
-
-  deleteRecord: function(store, type, model) {
-    var id = get(model, 'id');
-    var root = this.rootForType(type);
-
-    this.ajax(this.buildURL(root, id), "DELETE", {
-      success: function(json) {
-        if (json) { this.sideload(store, type, json); }
-        store.didDeleteRecord(model);
-      }
-    });
-  },
-
-  deleteRecords: function(store, type, models) {
-    if (get(this, 'bulkCommit') === false) {
-      return this._super(store, type, models);
-    }
-
-    var root = this.rootForType(type),
-        plural = this.pluralize(root);
-
-    var data = {};
-    data[plural] = models.map(function(model) {
-      return get(model, 'id');
-    });
-
-    this.ajax(this.buildURL(root, 'bulk'), "DELETE", {
-      data: data,
-      success: function(json) {
-        if (json) { this.sideload(store, type, json); }
-        store.didDeleteRecords(models);
-      }
-    });
-  },
-
-  find: function(store, type, id) {
-    var root = this.rootForType(type);
-
-    this.ajax(this.buildURL(root, id), "GET", {
-      success: function(json) {
-        store.load(type, json[root]);
-        this.sideload(store, type, json, root);
-      }
-    });
-  },
-
-  findMany: function(store, type, ids) {
-    var root = this.rootForType(type), plural = this.pluralize(root);
-
-    this.ajax(this.buildURL(root), "GET", {
-      data: { ids: ids },
-      success: function(json) {
-        store.loadMany(type, ids, json[plural]);
-        this.sideload(store, type, json, plural);
-      }
-    });
-  },
-
-  findAll: function(store, type) {
-    var root = this.rootForType(type), plural = this.pluralize(root);
-
-    this.ajax(this.buildURL(root), "GET", {
-      success: function(json) {
-        store.loadMany(type, json[plural]);
-        this.sideload(store, type, json, plural);
-      }
-    });
-  },
-
-  findQuery: function(store, type, query, modelArray) {
-    var root = this.rootForType(type), plural = this.pluralize(root);
-
-    this.ajax(this.buildURL(root), "GET", {
-      data: query,
-      success: function(json) {
-        modelArray.load(json[plural]);
-        this.sideload(store, type, json, plural);
-      }
-    });
-  },
-
-  // HELPERS
-
-  plurals: {},
-
-  // define a plurals hash in your subclass to define
-  // special-case pluralization
-  pluralize: function(name) {
-    return this.plurals[name] || name + "s";
-  },
-
-  rootForType: function(type) {
-    if (type.url) { return type.url; }
-
-    // use the last part of the name as the URL
-    var parts = type.toString().split(".");
-    var name = parts[parts.length - 1];
-    return name.replace(/([A-Z])/g, '_$1').toLowerCase().slice(1);
-  },
-
-  ajax: function(url, type, hash) {
-    hash.url = url;
-    hash.type = type;
-    hash.dataType = 'json';
-    hash.contentType = 'application/json';
-    hash.context = this;
-
-    if (hash.data && type !== 'GET') {
-      hash.data = JSON.stringify(hash.data);
-    }
-
-    jQuery.ajax(hash);
-  },
-
-  sideload: function(store, type, json, root) {
-    var sideloadedType, mappings;
-
-    for (var prop in json) {
-      if (!json.hasOwnProperty(prop)) { continue; }
-      if (prop === root) { continue; }
-
-      sideloadedType = type.typeForAssociation(prop);
-
-      if (!sideloadedType) {
-        mappings = get(this, 'mappings');
-
-        ember_assert("Your server returned a hash with the key " + prop + " but you have no mappings", !!mappings);
-
-        sideloadedType = get(get(this, 'mappings'), prop);
-
-        ember_assert("Your server returned a hash with the key " + prop + " but you have no mapping for it", !!sideloadedType);
-      }
-
-      this.loadValue(store, sideloadedType, json[prop]);
-    }
-  },
-
-  loadValue: function(store, type, value) {
-    if (value instanceof Array) {
-      store.loadMany(type, value);
-    } else {
-      store.load(type, value);
-    }
-  },
-
-  buildURL: function(model, suffix) {
-    var url = [""];
-
-    if (this.namespace !== undefined) {
-      url.push(this.namespace);
-    }
-
-    url.push(this.pluralize(model));
-    if (suffix !== undefined) {
-      url.push(suffix);
-    }
-
-    return url.join("/");
-  }
-});
-
-
-})({});
-
-
-(function(exports) {
+(function() {
 var get = Ember.get, set = Ember.set;
 
 /**
@@ -395,10 +75,11 @@ DS.ModelArray = Ember.ArrayProxy.extend({
   }
 });
 
-})({});
+})();
 
 
-(function(exports) {
+
+(function() {
 var get = Ember.get;
 
 DS.FilteredModelArray = DS.ModelArray.extend({
@@ -415,10 +96,11 @@ DS.FilteredModelArray = DS.ModelArray.extend({
   }, 'filterFunction')
 });
 
-})({});
+})();
 
 
-(function(exports) {
+
+(function() {
 var get = Ember.get, set = Ember.set;
 
 DS.AdapterPopulatedModelArray = DS.ModelArray.extend({
@@ -443,10 +125,11 @@ DS.AdapterPopulatedModelArray = DS.ModelArray.extend({
 });
 
 
-})({});
+})();
 
 
-(function(exports) {
+
+(function() {
 var get = Ember.get, set = Ember.set, guidFor = Ember.guidFor;
 
 var Set = function() {
@@ -553,10 +236,11 @@ DS.ManyArrayStateManager = Ember.StateManager.extend({
   }
 });
 
-})({});
+})();
 
 
-(function(exports) {
+
+(function() {
 var get = Ember.get, set = Ember.set, getPath = Ember.getPath;
 
 DS.ManyArray = DS.ModelArray.extend({
@@ -571,6 +255,18 @@ DS.ManyArray = DS.ModelArray.extend({
   isDirty: Ember.computed(function() {
     return getPath(this, 'stateManager.currentState.isDirty');
   }).property('stateManager.currentState').cacheable(),
+
+  fetch: function() {
+    var clientIds = get(this, 'content'),
+        store = get(this, 'store'),
+        type = get(this, 'type');
+
+    var ids = clientIds.map(function(clientId) {
+      return store.clientIdToId[clientId];
+    });
+
+    store.fetchMany(type, ids);
+  },
 
   // Overrides Ember.Array's replace method to implement
   replace: function(index, removed, added) {
@@ -627,14 +323,17 @@ DS.ManyArray = DS.ModelArray.extend({
   }
 });
 
-})({});
+})();
 
 
-(function(exports) {
-})({});
+
+(function() {
+
+})();
 
 
-(function(exports) {
+
+(function() {
 var get = Ember.get, set = Ember.set, getPath = Ember.getPath, fmt = Ember.String.fmt;
 
 DS.Transaction = Ember.Object.extend({
@@ -784,10 +483,11 @@ DS.Transaction = Ember.Object.extend({
   }
 });
 
-})({});
+})();
 
 
-(function(exports) {
+
+(function() {
 var get = Ember.get, set = Ember.set, getPath = Ember.getPath, fmt = Ember.String.fmt;
 
 var DATA_PROXY = {
@@ -796,6 +496,11 @@ var DATA_PROXY = {
   }
 };
 
+// These values are used in the data cache when clientIds are
+// needed but the underlying data has not yet been loaded by
+// the server.
+var UNLOADED = 'unloaded';
+var LOADING = 'loading';
 
 // Implementors Note:
 //
@@ -916,7 +621,7 @@ DS.Store = Ember.Object.extend({
 
   // A monotonically increasing number to be used to uniquely identify
   // data hashes and records.
-  clientIdCounter: -1,
+  clientIdCounter: 1,
 
   // ....................
   // . CREATE NEW MODEL .
@@ -1065,7 +770,7 @@ DS.Store = Ember.Object.extend({
       return this.findMany(type, id);
     }
 
-    var clientId = this.clientIdForId(type, id);
+    var clientId = this.typeMapFor(type).idToCid[id];
 
     return this.findByClientId(type, clientId, id);
   },
@@ -1088,12 +793,12 @@ DS.Store = Ember.Object.extend({
         // 'isLoading' state
         model = this.materializeRecord(type, clientId);
 
-        if (dataCache[clientId]) {
+        if (typeof dataCache[clientId] === 'object') {
           model.send('didChangeData');
         }
       }
     } else {
-      clientId = this.pushHash(null, id, type);
+      clientId = this.pushHash(LOADING, id, type);
 
       // create a new instance of the model in the
       // 'isLoading' state
@@ -1108,11 +813,26 @@ DS.Store = Ember.Object.extend({
     return model;
   },
 
-  /** @private
+  /**
+    @private
+
+    Ask the adapter to fetch IDs that are not already loaded.
+
+    This method will convert `id`s to `clientId`s, filter out
+    `clientId`s that already have a data hash present, and pass
+    the remaining `id`s to the adapter.
+
+    @param {Class} type A model class
+    @param {Array} ids An array of ids
+    @param {Object} query
+
+    @returns {Array} An Array of all clientIds for the
+      specified ids.
   */
-  findMany: function(type, ids, query) {
+  fetchMany: function(type, ids, query) {
     var typeMap = this.typeMapFor(type),
         idToClientIdMap = typeMap.idToCid,
+        dataCache = typeMap.cidToHash,
         data = typeMap.cidToHash,
         needed;
 
@@ -1122,23 +842,50 @@ DS.Store = Ember.Object.extend({
       needed = [];
 
       ids.forEach(function(id) {
+        // Get the clientId for the given id
         var clientId = idToClientIdMap[id];
-        if (clientId === undefined || data[clientId] === undefined) {
-          clientId = this.pushHash(null, id, type);
+
+        // If there is no `clientId` yet
+        if (clientId === undefined) {
+          // Create a new `clientId`, marking its data hash
+          // as loading. Once the adapter returns the data
+          // hash, it will be updated
+          clientId = this.pushHash(LOADING, id, type);
+          needed.push(id);
+
+        // If there is a clientId, but its data hash is
+        // marked as unloaded (this happens when a
+        // hasMany association creates clientIds for its
+        // referenced ids before they were loaded)
+        } else if (clientId && data[clientId] === UNLOADED) {
+          // change the data hash marker to loading
+          dataCache[clientId] = LOADING;
           needed.push(id);
         }
 
+        // this method is expected to return a list of
+        // all of the clientIds for the specified ids,
+        // unconditionally add it.
         clientIds.push(clientId);
       }, this);
     } else {
       needed = null;
     }
 
+    // If there are any needed ids, ask the adapter to load them
     if ((needed && get(needed, 'length') > 0) || query) {
       var adapter = get(this, '_adapter');
       if (adapter && adapter.findMany) { adapter.findMany(this, type, needed, query); }
       else { throw fmt("Adapter is either null or does not implement `findMany` method", this); }
     }
+
+    return clientIds;
+  },
+
+  /** @private
+  */
+  findMany: function(type, ids, query) {
+    var clientIds = this.fetchMany(type, ids, query);
 
     return this.createManyArray(type, clientIds);
   },
@@ -1266,7 +1013,7 @@ DS.Store = Ember.Object.extend({
   didCreateRecords: function(type, array, hashes) {
     var primaryKey = type.proto().primaryKey,
         typeMap = this.typeMapFor(type),
-        id, clientId;
+        clientId;
 
     for (var i=0, l=get(array, 'length'); i<l; i++) {
       var model = array[i], hash = hashes[i];
@@ -1279,7 +1026,7 @@ DS.Store = Ember.Object.extend({
   didCreateRecord: function(model, hash) {
     var type = model.constructor,
         typeMap = this.typeMapFor(type),
-        id, clientId, primaryKey;
+        clientId, primaryKey;
 
     // The hash is optional, but if it is not provided, the client must have
     // provided a primary key.
@@ -1336,7 +1083,8 @@ DS.Store = Ember.Object.extend({
     for (var i=0, l=clientIds.length; i<l; i++) {
       clientId = clientIds[i];
 
-      if (hash = dataCache[clientId]) {
+      hash = dataCache[clientId];
+      if (typeof hash === 'object') {
         if (record = recordCache[clientId]) {
           proxy = get(record, 'data');
         } else {
@@ -1429,13 +1177,17 @@ DS.Store = Ember.Object.extend({
   /** @private
 
     For a given type and id combination, returns the client id used by the store.
-    If no client id has been assigned yet, `undefined` is returned.
+    If no client id has been assigned yet, one will be created and returned.
 
     @param {DS.Model} type
     @param {String|Number} id
   */
   clientIdForId: function(type, id) {
-    return this.typeMapFor(type).idToCid[id];
+    var clientId = this.typeMapFor(type).idToCid[id];
+
+    if (clientId !== undefined) { return clientId; }
+
+    return this.pushHash(UNLOADED, id, type);
   },
 
   // ................
@@ -1470,9 +1222,9 @@ DS.Store = Ember.Object.extend({
     if (clientId !== undefined) {
       dataCache[clientId] = hash;
 
-      var model = recordCache[clientId];
-      if (model) {
-        model.send('didChangeData');
+      var record = recordCache[clientId];
+      if (record) {
+        record.send('didChangeData');
       }
     } else {
       clientId = this.pushHash(hash, id, type);
@@ -1491,6 +1243,7 @@ DS.Store = Ember.Object.extend({
       hashes = ids;
       ids = [];
       var primaryKey = type.proto().primaryKey;
+
       ids = Ember.ArrayUtils.map(hashes, function(hash) {
         return hash[primaryKey];
       });
@@ -1565,10 +1318,11 @@ DS.Store = Ember.Object.extend({
   }
 });
 
-})({});
+})();
 
 
-(function(exports) {
+
+(function() {
 var get = Ember.get, set = Ember.set, getPath = Ember.getPath, guidFor = Ember.guidFor;
 
 var stateProperty = Ember.computed(function(key) {
@@ -1959,7 +1713,7 @@ var createdState = DirtyState.create({
 
   // EVENTS
   invokeLifecycleCallbacks: function(manager, model) {
-    model.didCreate();
+    model.fire('didCreate');
   }
 });
 
@@ -1968,7 +1722,7 @@ var updatedState = DirtyState.create({
 
   // EVENTS
   invokeLifecycleCallbacks: function(manager, model) {
-    model.didUpdate();
+    model.fire('didUpdate');
   }
 });
 
@@ -2024,7 +1778,7 @@ var states = {
       // TRANSITIONS
       exit: function(manager) {
         var model = get(manager, 'model');
-        model.didLoad();
+        model.fire('didLoad');
       },
 
       // EVENTS
@@ -2083,7 +1837,7 @@ var states = {
       // A record is in this state if it has already been
       // saved to the server, but there are new local changes
       // that have not yet been saved.
-      updated: updatedState,
+      updated: updatedState
     }),
 
     // A record is in this state if it was deleted from the store.
@@ -2166,19 +1920,16 @@ DS.StateManager = Ember.StateManager.extend({
   states: states
 });
 
-})({});
+})();
 
 
-(function(exports) {
-var get = Ember.get, set = Ember.set, getPath = Ember.getPath, none = Ember.none;
 
-var retrieveFromCurrentState = Ember.computed(function(key) {
-  return get(getPath(this, 'stateManager.currentState'), key);
-}).property('stateManager.currentState').cacheable();
+(function() {
+var get = Ember.get, set = Ember.set;
 
 // This object is a regular JS object for performance. It is only
 // used internally for bookkeeping purposes.
-var DataProxy = function(record) {
+var DataProxy = DS._DataProxy = function(record) {
   this.record = record;
   this.unsavedData = {};
   this.associations = {};
@@ -2267,7 +2018,18 @@ DataProxy.prototype = {
   }
 };
 
-DS.Model = Ember.Object.extend({
+})();
+
+
+
+(function() {
+var get = Ember.get, set = Ember.set, getPath = Ember.getPath, none = Ember.none;
+
+var retrieveFromCurrentState = Ember.computed(function(key) {
+  return get(getPath(this, 'stateManager.currentState'), key);
+}).property('stateManager.currentState').cacheable();
+
+DS.Model = Ember.Object.extend(Ember.Evented, {
   isLoaded: retrieveFromCurrentState,
   isDirty: retrieveFromCurrentState,
   isSaving: retrieveFromCurrentState,
@@ -2298,11 +2060,11 @@ DS.Model = Ember.Object.extend({
     return data && get(data, primaryKey);
   }).property('primaryKey', 'data'),
 
-  // The following methods are callbacks invoked by `getJSON`. You
+  // The following methods are callbacks invoked by `toJSON`. You
   // can override one of the callbacks to override specific behavior,
-  // or getJSON itself.
+  // or toJSON itself.
   //
-  // If you override getJSON, you can invoke these callbacks manually
+  // If you override toJSON, you can invoke these callbacks manually
   // to get the default behavior.
 
   /**
@@ -2449,7 +2211,7 @@ DS.Model = Ember.Object.extend({
   },
 
   data: Ember.computed(function() {
-    return new DataProxy(this);
+    return new DS._DataProxy(this);
   }).cacheable(),
 
   didLoad: Ember.K,
@@ -2537,6 +2299,40 @@ DS.Model = Ember.Object.extend({
     // this record has changed so they can re-evaluate its contents
     // to determine membership.
     Ember.run.once(this, this.notifyHashWasUpdated);
+  },
+
+  dataDidChange: Ember.observer(function() {
+    var associations = get(this.constructor, 'associationsByName'),
+        data = get(this, 'data'), store = get(this, 'store'),
+        idToClientId = store.idToClientId,
+        cachedValue;
+
+    associations.forEach(function(name, association) {
+      if (association.kind === 'hasMany') {
+        cachedValue = this.cacheFor(name);
+
+        if (cachedValue) {
+          var ids = data.get(name) || [];
+          var clientIds = Ember.ArrayUtils.map(ids, function(id) {
+            return store.clientIdForId(association.type, id);
+          });
+
+          set(cachedValue, 'content', Ember.A(clientIds));
+          cachedValue.fetch();
+        }
+      }
+    }, this);
+  }, 'data'),
+
+  /**
+    @private
+
+    Override the default event firing from Ember.Evented to
+    also call methods with the given name.
+  */
+  fire: function(name) {
+    this[name].apply(this, [].slice.call(arguments, 1));
+    this._super.apply(this, arguments);
   }
 });
 
@@ -2567,10 +2363,11 @@ DS.Model.reopenClass({
   createRecord: storeAlias('createRecord')
 });
 
-})({});
+})();
 
 
-(function(exports) {
+
+(function() {
 var get = Ember.get, getPath = Ember.getPath;
 DS.Model.reopenClass({
   attributes: Ember.computed(function() {
@@ -2722,14 +2519,17 @@ DS.attr.transforms = {
 };
 
 
-})({});
+})();
 
 
-(function(exports) {
-})({});
+
+(function() {
+
+})();
 
 
-(function(exports) {
+
+(function() {
 var get = Ember.get, set = Ember.set, getPath = Ember.getPath,
     none = Ember.none;
 
@@ -2788,10 +2588,11 @@ DS.belongsTo = function(type, options) {
   return hasAssociation(type, options);
 };
 
-})({});
+})();
 
 
-(function(exports) {
+
+(function() {
 var get = Ember.get, set = Ember.set, getPath = Ember.getPath;
 var embeddedFindRecord = function(store, type, data, key) {
   var association = get(data, key);
@@ -2833,10 +2634,11 @@ DS.hasMany = function(type, options) {
   return hasAssociation(type, options);
 };
 
-})({});
+})();
 
 
-(function(exports) {
+
+(function() {
 var get = Ember.get, getPath = Ember.getPath;
 
 DS.Model.reopenClass({
@@ -2891,14 +2693,342 @@ DS.Model.reopenClass({
   }).cacheable()
 });
 
-})({});
+})();
 
 
-(function(exports) {
-})({});
+
+(function() {
+
+})();
 
 
-(function(exports) {
+
+(function() {
+DS.Adapter = Ember.Object.extend({
+  commit: function(store, commitDetails) {
+    commitDetails.updated.eachType(function(type, array) {
+      this.updateRecords(store, type, array.slice());
+    }, this);
+
+    commitDetails.created.eachType(function(type, array) {
+      this.createRecords(store, type, array.slice());
+    }, this);
+
+    commitDetails.deleted.eachType(function(type, array) {
+      this.deleteRecords(store, type, array.slice());
+    }, this);
+  },
+
+  createRecords: function(store, type, models) {
+    models.forEach(function(model) {
+      this.createRecord(store, type, model);
+    }, this);
+  },
+
+  updateRecords: function(store, type, models) {
+    models.forEach(function(model) {
+      this.updateRecord(store, type, model);
+    }, this);
+  },
+
+  deleteRecords: function(store, type, models) {
+    models.forEach(function(model) {
+      this.deleteRecord(store, type, model);
+    }, this);
+  },
+
+  findMany: function(store, type, ids) {
+    ids.forEach(function(id) {
+      this.find(store, type, id);
+    }, this);
+  }
+});
+
+})();
+
+
+
+(function() {
+DS.fixtureAdapter = DS.Adapter.create({
+  find: function(store, type, id) {
+    var fixtures = type.FIXTURES;
+
+    ember_assert("Unable to find fixtures for model type "+type.toString(), !!fixtures);
+    if (fixtures.hasLoaded) { return; }
+
+    setTimeout(function() {
+      store.loadMany(type, fixtures);
+      fixtures.hasLoaded = true;
+    }, 300);
+  },
+
+  findMany: function() {
+    this.find.apply(this, arguments);
+  },
+
+  findAll: function(store, type) {
+    var fixtures = type.FIXTURES;
+
+    ember_assert("Unable to find fixtures for model type "+type.toString(), !!fixtures);
+
+    var ids = fixtures.map(function(item, index, self){ return item.id; });
+    store.loadMany(type, ids, fixtures);
+  }
+
+});
+
+})();
+
+
+
+(function() {
+/*global jQuery*/
+
+var get = Ember.get, set = Ember.set, getPath = Ember.getPath;
+
+DS.RESTAdapter = DS.Adapter.extend({
+  createRecord: function(store, type, model) {
+    var root = this.rootForType(type);
+
+    var data = {};
+    data[root] = model.toJSON();
+
+    this.ajax(this.buildURL(root), "POST", {
+      data: data,
+      success: function(json) {
+        this.sideload(store, type, json, root);
+        store.didCreateRecord(model, json[root]);
+      }
+    });
+  },
+
+  createRecords: function(store, type, models) {
+    if (get(this, 'bulkCommit') === false) {
+      return this._super(store, type, models);
+    }
+
+    var root = this.rootForType(type),
+        plural = this.pluralize(root);
+
+    var data = {};
+    data[plural] = models.map(function(model) {
+      return model.toJSON();
+    });
+
+    this.ajax(this.buildURL(root), "POST", {
+      data: data,
+
+      success: function(json) {
+        this.sideload(store, type, json, plural);
+        store.didCreateRecords(type, models, json[plural]);
+      }
+    });
+  },
+
+  updateRecord: function(store, type, model) {
+    var id = get(model, 'id');
+    var root = this.rootForType(type);
+
+    var data = {};
+    data[root] = model.toJSON();
+
+    this.ajax(this.buildURL(root, id), "PUT", {
+      data: data,
+      success: function(json) {
+        this.sideload(store, type, json, root);
+        store.didUpdateRecord(model, json && json[root]);
+      }
+    });
+  },
+
+  updateRecords: function(store, type, models) {
+    if (get(this, 'bulkCommit') === false) {
+      return this._super(store, type, models);
+    }
+
+    var root = this.rootForType(type),
+        plural = this.pluralize(root);
+
+    var data = {};
+    data[plural] = models.map(function(model) {
+      return model.toJSON();
+    });
+
+    this.ajax(this.buildURL(root, "bulk"), "PUT", {
+      data: data,
+      success: function(json) {
+        this.sideload(store, type, json, plural);
+        store.didUpdateRecords(models, json[plural]);
+      }
+    });
+  },
+
+  deleteRecord: function(store, type, model) {
+    var id = get(model, 'id');
+    var root = this.rootForType(type);
+
+    this.ajax(this.buildURL(root, id), "DELETE", {
+      success: function(json) {
+        if (json) { this.sideload(store, type, json); }
+        store.didDeleteRecord(model);
+      }
+    });
+  },
+
+  deleteRecords: function(store, type, models) {
+    if (get(this, 'bulkCommit') === false) {
+      return this._super(store, type, models);
+    }
+
+    var root = this.rootForType(type),
+        plural = this.pluralize(root);
+
+    var data = {};
+    data[plural] = models.map(function(model) {
+      return get(model, 'id');
+    });
+
+    this.ajax(this.buildURL(root, 'bulk'), "DELETE", {
+      data: data,
+      success: function(json) {
+        if (json) { this.sideload(store, type, json); }
+        store.didDeleteRecords(models);
+      }
+    });
+  },
+
+  find: function(store, type, id) {
+    var root = this.rootForType(type);
+
+    this.ajax(this.buildURL(root, id), "GET", {
+      success: function(json) {
+        store.load(type, json[root]);
+        this.sideload(store, type, json, root);
+      }
+    });
+  },
+
+  findMany: function(store, type, ids) {
+    var root = this.rootForType(type), plural = this.pluralize(root);
+
+    this.ajax(this.buildURL(root), "GET", {
+      data: { ids: ids },
+      success: function(json) {
+        store.loadMany(type, ids, json[plural]);
+        this.sideload(store, type, json, plural);
+      }
+    });
+  },
+
+  findAll: function(store, type) {
+    var root = this.rootForType(type), plural = this.pluralize(root);
+
+    this.ajax(this.buildURL(root), "GET", {
+      success: function(json) {
+        store.loadMany(type, json[plural]);
+        this.sideload(store, type, json, plural);
+      }
+    });
+  },
+
+  findQuery: function(store, type, query, modelArray) {
+    var root = this.rootForType(type), plural = this.pluralize(root);
+
+    this.ajax(this.buildURL(root), "GET", {
+      data: query,
+      success: function(json) {
+        modelArray.load(json[plural]);
+        this.sideload(store, type, json, plural);
+      }
+    });
+  },
+
+  // HELPERS
+
+  plurals: {},
+
+  // define a plurals hash in your subclass to define
+  // special-case pluralization
+  pluralize: function(name) {
+    return this.plurals[name] || name + "s";
+  },
+
+  rootForType: function(type) {
+    if (type.url) { return type.url; }
+
+    // use the last part of the name as the URL
+    var parts = type.toString().split(".");
+    var name = parts[parts.length - 1];
+    return name.replace(/([A-Z])/g, '_$1').toLowerCase().slice(1);
+  },
+
+  ajax: function(url, type, hash) {
+    hash.url = url;
+    hash.type = type;
+    hash.dataType = 'json';
+    hash.contentType = 'application/json';
+    hash.context = this;
+
+    if (hash.data && type !== 'GET') {
+      hash.data = JSON.stringify(hash.data);
+    }
+
+    jQuery.ajax(hash);
+  },
+
+  sideload: function(store, type, json, root) {
+    var sideloadedType, mappings;
+
+    for (var prop in json) {
+      if (!json.hasOwnProperty(prop)) { continue; }
+      if (prop === root) { continue; }
+
+      sideloadedType = type.typeForAssociation(prop);
+
+      if (!sideloadedType) {
+        mappings = get(this, 'mappings');
+
+        ember_assert("Your server returned a hash with the key " + prop + " but you have no mappings", !!mappings);
+
+        sideloadedType = get(get(this, 'mappings'), prop);
+
+        ember_assert("Your server returned a hash with the key " + prop + " but you have no mapping for it", !!sideloadedType);
+      }
+
+      this.loadValue(store, sideloadedType, json[prop]);
+    }
+  },
+
+  loadValue: function(store, type, value) {
+    if (value instanceof Array) {
+      store.loadMany(type, value);
+    } else {
+      store.load(type, value);
+    }
+  },
+
+  buildURL: function(model, suffix) {
+    var url = [""];
+
+    if (this.namespace !== undefined) {
+      url.push(this.namespace);
+    }
+
+    url.push(this.pluralize(model));
+    if (suffix !== undefined) {
+      url.push(suffix);
+    }
+
+    return url.join("/");
+  }
+});
+
+
+})();
+
+
+
+(function() {
 //Copyright (C) 2011 by Living Social, Inc.
 
 //Permission is hereby granted, free of charge, to any person obtaining a copy of
@@ -2918,4 +3048,6 @@ DS.Model.reopenClass({
 //LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 //OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 //SOFTWARE.
-})({});
+
+})();
+

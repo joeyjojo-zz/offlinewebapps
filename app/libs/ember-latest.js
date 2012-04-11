@@ -13811,11 +13811,14 @@ Ember.View = Ember.Object.extend(Ember.Evented,
     @test in createChildViews
   */
   createChildView: function(view, attrs) {
+    var coreAttrs;
+
     if (Ember.View.detect(view)) {
+      coreAttrs = { _parentView: this };
       if (attrs) {
-        view = view.create({ _parentView: this }, attrs);
+        view = view.create(coreAttrs, attrs);
       } else {
-        view = view.create({ _parentView: this });
+        view = view.create(coreAttrs);
       }
 
       var viewName = view.viewName;
@@ -13827,6 +13830,7 @@ Ember.View = Ember.Object.extend(Ember.Evented,
       ember_assert('must pass instance of View', view instanceof Ember.View);
       set(view, '_parentView', this);
     }
+
     return view;
   },
 
@@ -14447,7 +14451,7 @@ Ember.ContainerView = Ember.View.extend({
     if (removed === 0) { return; }
 
     var changedViews = views.slice(start, start+removed);
-    this.setParentView(changedViews, null);
+    this.initializeViews(changedViews, null, null);
 
     this.invokeForState('childViewsWillChange', views, start, removed);
   },
@@ -14474,15 +14478,16 @@ Ember.ContainerView = Ember.View.extend({
     if (added === 0) return;
 
     var changedViews = views.slice(start, start+added);
-    this.setParentView(changedViews, this);
+    this.initializeViews(changedViews, this, get(this, 'templateData'));
 
     // Let the current state handle the changes
     this.invokeForState('childViewsDidChange', views, start, added);
   },
 
-  setParentView: function(views, parentView) {
+  initializeViews: function(views, parentView, templateData) {
     forEach(views, function(view) {
       set(view, '_parentView', parentView);
+      set(view, 'templateData', templateData);
     });
   },
 
@@ -16579,7 +16584,7 @@ EmberHandlebars.ViewHelper = Ember.Object.create({
     };
 
     if (fn) {
-      ember_assert("You cannot provide a template block if you also specified a templateName", !(get(viewOptions, 'templateName')) && (indexOf(newView.PrototypeMixin.keys(), 'templateName') >= 0));
+      ember_assert("You cannot provide a template block if you also specified a templateName", !get(viewOptions, 'templateName') && !get(newView.proto(), 'templateName'));
       viewOptions.template = fn;
     }
 
