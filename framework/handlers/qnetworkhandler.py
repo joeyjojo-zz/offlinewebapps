@@ -1,6 +1,9 @@
 __author__ = 'jond'
 
-from PySide import QtCore, QtNetwork
+try:
+    from PyQt4 import QtCore, QtNetwork
+except ImportError:
+    from PySide import QtCore, QtNetwork
 
 class FakeReply(QtNetwork.QNetworkReply):
     """

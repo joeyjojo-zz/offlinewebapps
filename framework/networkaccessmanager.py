@@ -30,7 +30,7 @@ class NetworkAccessManager(QtNetwork.QNetworkAccessManager):
         """
         reply = None
         requrl = request.url()
-        requrlstr = requrl.toString()
+        requrlstr = unicode(requrl.toString())
         for urltuple in urls.REDIRECTS:
             m = re.search(urltuple[0], requrlstr)
             if m:
