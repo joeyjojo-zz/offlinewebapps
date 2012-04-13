@@ -104,7 +104,7 @@ App.contactsController = Ember.ArrayController.create({
     loadContacts: function() {
         var self = this;
         $.ajax({
-            url: '/contact/1',
+            url: '/contacts',
             dataType: 'json',
             success: function(data) {
                 var contacts = data.contacts;
