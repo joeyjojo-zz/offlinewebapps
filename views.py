@@ -7,17 +7,26 @@ import models
 """
 Contact views
 """
-def getcontacts():
+def getcontacts(id=None):
     """
     Retrieves all the contacts currently stored in the database
     @return: unicode
     """
-    contacts = [{'id':c.id,
-                 'firstName':c.firstName,
-                 'lastName':c.lastName or "",
-                 'phoneNumbers':[pn.number for pn in c.phonenumber]} for c in models.Contact.query.all()]
-    print contacts
-    return json.dumps({"contacts":contacts})
+    if id is None:
+        contacts = [{'id':c.id,
+                     'firstName':c.firstName,
+                     'lastName':c.lastName or "",
+                     'phoneNumbers':[pn.number for pn in c.phonenumber]
+                    } for c in models.Contact.query.all()]
+        return json.dumps({"contacts":contacts})
+    else:
+        c = models.Contact.query.filter_by(id=id).one()
+        r = [{'id':c.id,
+                'firstName':c.firstName,
+                'lastName':c.lastName or "",
+                'phoneNumbers':[pn.number for pn in c.phonenumber]
+        }]
+        return json.dumps({"contacts":r})
 
 def addcontact(firstName, lastName):
     """
