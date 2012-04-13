@@ -1,7 +1,6 @@
 __author__ = 'jond'
 
 import json
-
 import models
 
 """
@@ -21,12 +20,12 @@ def getcontacts(id=None):
         return json.dumps({"contacts":contacts})
     else:
         c = models.Contact.query.filter_by(id=id).one()
-        r = [{'id':c.id,
-                'firstName':c.firstName,
-                'lastName':c.lastName or "",
-                'phoneNumbers':[pn.number for pn in c.phonenumber]
-        }]
-        return json.dumps({"contacts":r})
+        r = {'id':c.id,
+             'firstName':c.firstName,
+             'lastName':c.lastName or "",
+             'phoneNumbers':[pn.number for pn in c.phonenumber]
+        }
+        return json.dumps(r)
 
 def addcontact(firstName, lastName):
     """
